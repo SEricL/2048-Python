@@ -126,7 +126,6 @@ def changes(oldB, newB):
     return False
 
 
-
 display = pygame.display.set_mode((600, 600))
 pygame.display.set_caption("Game")
 FPS = pygame.time.Clock()
@@ -146,6 +145,7 @@ params = game_over_font.size(("Retry?: Spacebar" + (str(turns))))
 params = ((600 - params[0]) // 2, (600 - params[1]) // 2)
 retry_rect = (params[0], params[1] + 50, retry_rect[2], retry_rect[3])
 indices = []
+
 
 def scoreDisplay(display, turns):
     # Puts score on main display
@@ -169,6 +169,7 @@ def drawBox(display, colour):
     pygame.draw.line(display, colour, (100, 300), (500, 300))
     pygame.draw.line(display, colour, (100, 400), (500, 400))
 
+
 def adj_indices():
     # Initializes a list of adj indices per index
     global indices
@@ -185,6 +186,7 @@ def adj_indices():
             inner.append(values.copy())
         indices.append(inner.copy())
 
+
 def adj_check(board, ind):
     global indices
     # Given an index, checks if any adj values are the same
@@ -194,14 +196,17 @@ def adj_check(board, ind):
     else:
         return False
 
+
 def loss_check(board):
     # Returns true if there are any moves left on the board
-    for i in range(0,4):
-        for j in range(0,4):
+    for i in range(0, 4):
+        for j in range(0, 4):
             if i % 3 != j % 3:
-                if adj_check(board, (i,j)):
+                if adj_check(board, (i, j)):
                     return True
     return False
+
+
 def start():
     # Initializes the game.
     global state
@@ -224,6 +229,109 @@ def start():
     turns = 0
     old = []
 
+
+def moveEntry(i, j, direction, axis):
+    # If calling function
+    global board
+    global positions
+    global turns
+    #global display
+
+    current = board[i][j] if axis == 0 else board[j][i]
+    if current == 0:
+        return False
+
+    if axis == 0:
+        if board[i+direction][j] == 0:
+            # Do stuff
+            for a in range(2):
+                board[i][j].rect.move_ip(0, direction*50)
+                board[i][j].draw(display)
+                pygame.display.flip()
+            board[i+direction][j] = current
+            board[i][j] = 0
+
+            try:
+                positions.remove((i+direction, j))
+            except ValueError:
+                pass
+            positions.append((i, j))
+            return True
+        elif board[i+direction][j].value == current.value:
+            for a in range(2):
+                board[i][j].rect.move_ip(0, direction*50)
+                board[i][j].draw(display)
+                pygame.display.flip()
+            board[i + direction][j].value += current.value
+            board[i][j] = 0
+            try:
+                positions.remove((i + direction, j))
+            except ValueError:
+                pass
+            positions.append((i, j))
+            return True
+    else:
+        if board[j][i+direction] == 0:
+            for a in range(2):
+                board[j][i].rect.move_ip(direction * 50, 0)
+                board[j][i].draw(display)
+                pygame.display.flip()
+            board[j][i+direction] = current
+            board[j][i] = 0
+            try:
+                positions.remove((j, i+direction))
+            except ValueError:
+                pass
+            positions.append((j, i))
+            return True
+        elif board[j][i+direction].value == current.value:
+            for a in range(2):
+                board[j][i].rect.move_ip(direction * 50, 0)
+                board[j][i].draw(display)
+                pygame.display.flip()
+            board[j][i + direction].value += current.value
+            board[j][i] = 0
+            try:
+                positions.remove((j, i + direction))
+            except ValueError:
+                pass
+            positions.append((j, i))
+            return True
+
+    return False
+
+
+def move(axis, direction):
+    """
+        Axis: 0 = Up/Down, 1 = Left/Right
+        Direction: -1 = Up/Left, 1 = Down/Right
+
+        Currently merges all possible tiles at once, rather than in several levels ([2][2][4] -> [8])
+    """
+    global board
+    global positions
+    global MASTER_POS
+    global turns
+    moved = False
+    other = 3
+    ran = range(2, -1, -1)
+    if direction == -1:
+        ran = range(0, 4)
+        other = 0
+
+    for j in ran:
+        for i in range(j, other, direction):
+            one = moveEntry(i, 0, direction, axis)
+            two = moveEntry(i, 1, direction, axis)
+            three = moveEntry(i, 2, direction, axis)
+            four = moveEntry(i, 3, direction, axis)
+            if not moved and(one or two or three or four):
+                moved = True
+
+    if moved:
+        return True
+    return False
+
 adj_indices()
 start()
 # TODO: Choose nicer colours for game
@@ -241,126 +349,20 @@ while True:
             if event.type == QUIT:
                 pygame.quit()
                 sys.exit()
+            movement = False
             if event.type == pygame.KEYDOWN:
-                for e in board:
-                    old.append(e.copy())
-                if event.key == pygame.K_UP:
-                    for i in range(4):
-                        for j in range(1, 4):
-                            if board[j][i] != 0:
-                                for k in range(j, 0, -1):
-                                    if board[k - 1][i] == 0:
-                                        # TODO: Clean up movement animation
-                                        for a in range(2):
-                                            board[k][i].rect.move_ip(0, -50)
-                                            board[k][i].draw(display)
-                                            pygame.display.flip()
-                                        board[k - 1][i] = board[k][i]
-                                        board[k][i] = 0
-                                        positions.append((k, i))
-                                        if (k - 1, i) in positions:
-                                            positions.remove((k - 1, i))
-                                    elif board[k - 1][i].value == board[k][i].value:
-                                        for a in range(2):
-                                            board[k][i].rect.move_ip(0, -50)
-                                            board[k][i].draw(display)
-                                            pygame.display.flip()
-                                        board[k - 1][i].value = board[k - 1][i].value * 2
-                                        if board[k - 1][i].value == 2048:
-                                            state = 2
-                                        board[k][i] = 0
-                                        positions.append((k, i))
-                                        if (k - 1, i) in positions:
-                                            positions.remove((k - 1, i))
-                                        break
-                elif event.key == pygame.K_DOWN:
-                    for i in range(4):
-                        for j in range(2, -1, -1):
-                            if board[j][i] != 0:
-                                for k in range(j, 3):
-                                    if board[k + 1][i] == 0:
-                                        for a in range(2):
-                                            board[k][i].rect.move_ip(0, 50)
-                                            board[k][i].draw(display)
-                                            pygame.display.flip()
-                                        board[k + 1][i] = board[k][i]
-                                        board[k][i] = 0
-                                        positions.append((k, i))
-                                        if (k + 1, i) in positions:
-                                            positions.remove((k + 1, i))
-                                    elif board[k + 1][i].value == board[k][i].value:
-                                        for a in range(2):
-                                            board[k][i].rect.move_ip(0, 50)
-                                            board[k][i].draw(display)
-                                            pygame.display.flip()
-                                        board[k + 1][i].value = board[k + 1][i].value * 2
-                                        if board[k + 1][i].value == 2048:
-                                            state = 2
-                                        board[k][i] = 0
-                                        positions.append((k, i))
-                                        if (k + 1, i) in positions:
-                                            positions.remove((k + 1, i))
-                                        break
-                elif event.key == pygame.K_LEFT:
-                    for i in range(4):
-                        for j in range(1, 4):
-                            if board[i][j] != 0:
-                                for k in range(j, 0, -1):
-                                    if board[i][k - 1] == 0:
-                                        for a in range(2):
-                                            board[i][k].rect.move_ip(-50, 0)
-                                            board[i][k].draw(display)
-                                            pygame.display.flip()
-                                        board[i][k - 1] = board[i][k]
-                                        board[i][k] = 0
-                                        positions.append((i, k))
-                                        if (i, k - 1) in positions:
-                                            positions.remove((i, k - 1))
-                                    elif board[i][k - 1].value == board[i][k].value:
-                                        for a in range(2):
-                                            board[i][k].rect.move_ip(-50, 0)
-                                            board[i][k].draw(display)
-                                            pygame.display.flip()
-                                        board[i][k - 1].value = board[i][k - 1].value * 2
-                                        if board[i][k - 1].value == 2048:
-                                            state = 2
-                                        board[i][k] = 0
-                                        positions.append((i, k))
-                                        if (i, k - 1) in positions:
-                                            positions.remove((i, k - 1))
-                                        break
-                elif event.key == pygame.K_RIGHT:
-                    for i in range(4):
-                        for j in range(2, -1, -1):
-                            if board[i][j] != 0:
-                                for k in range(j, 3):
-                                    if board[i][k + 1] == 0:
-                                        for a in range(2):
-                                            board[i][k].rect.move_ip(50, 0)
-                                            board[i][k].draw(display)
-                                            pygame.display.flip()
-                                        board[i][k + 1] = board[i][k]
-                                        board[i][k] = 0
-                                        positions.append((i, k))
-                                        if (i, k + 1) in positions:
-                                            positions.remove((i, k + 1))
-                                    elif board[i][k + 1].value == board[i][k].value:
-                                        for a in range(2):
-                                            board[i][k].rect.move_ip(50, 0)
-                                            board[i][k].draw(display)
-                                            pygame.display.flip()
-                                        board[i][k + 1].value = board[i][k + 1].value * 2
-                                        if board[i][k + 1].value == 2048:
-                                            state = 2
-                                        board[i][k] = 0
-                                        positions.append((i, k))
-                                        if (i, k + 1) in positions:
-                                            positions.remove((i, k + 1))
-                                        break
-                if changes(old, board):
+                match event.key:
+                    case pygame.K_UP:
+                        movement = move(0, -1)
+                    case pygame.K_DOWN:
+                        movement = move(0, 1)
+                    case pygame.K_LEFT:
+                        movement = move(1, -1)
+                    case pygame.K_RIGHT:
+                        movement = move(1, 1)
+                if movement:
                     turns += 1
                     add(turns)
-                old = []
         if len(positions) == 0:
             if not loss_check(board):
                 state = 1
